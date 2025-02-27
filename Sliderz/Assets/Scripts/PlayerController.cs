@@ -4,72 +4,102 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-
-    public float jumpForce = 100f;
-    public bool leftSideControls = true;
+    public GameObject menuUI;
+    public GameObject m_camera;
+    public float constForce = 10f;
+    public float jumpForce = 10f;
     public LayerMask groundMask;
-    private Rigidbody2D rb;
-    private SpriteRenderer sprRender;
-    private bool jump;
+    public bool isGrounded;
+    public bool normalGrv;
+    public static bool leftSideControls = true;
+    bool grvSwitched;
+    bool jump;
+
+    Vector2 firstPt;
+    Vector2 secPt;
+
+    Rigidbody2D rb;
 
     // Start is called before the first frame update
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
-        sprRender = GetComponent<SpriteRenderer>();
-        Debug.Log(sprRender.size.x);
+        normalGrv = true;
+        Vector2 firstPt = new Vector2(transform.position.x - .5f, transform.position.y - .5f);
+        Vector2 secPt = new Vector2(transform.position.x + .5f, transform.position.y - .51f);
     }
 
     // Update is called once per frame
     void Update()
     {
+        if (isGrounded)
+        {
+            rb.velocity = (Vector2.right * constForce);
+        }
+
         if (Input.touchCount > 0)
         {
-            var touch = Input.GetTouch(0);
-            if ((touch.position.x < Screen.width / 2) && leftSideControls && !jump && GroundCheck())//Left side
+            Touch touch = Input.GetTouch(0);
+            Vector3 touchPos = Camera.main.ScreenToWorldPoint(touch.position);
+            touchPos.z = 0f;
+            if (leftSideControls)
             {
-                Debug.Log("Jumps");
-                jump = true;
+                if (touchPos.x < m_camera.transform.position.x)
+                {
+                    jump = true;
+                }
             }
-            else if ((touch.position.x > Screen.width / 2) && !leftSideControls && !jump && GroundCheck())//Right side
+            else
             {
-                Debug.Log("Jumpd");
-                jump = true;
+                if (touchPos.x > m_camera.transform.position.x)
+                {
+                    jump = true;
+                }
             }
         }
 
-        if (Input.GetKey(KeyCode.W) && !jump && GroundCheck())
+        if ((Input.GetKey(KeyCode.W) || jump) && isGrounded)
         {
-            jump = true;
+            rb.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);
+            Debug.Log(leftSideControls);
+            jump = false;
         }
 
-        if (jump)
+        //DO GRAVITY SWITCH LATER
+        // if (Input.GetKeyDown(KeyCode.Space)){
+        // normalGrv = !normalGrv;
+        // if (normalGrv){
+        // firstPt = new Vector2(transform.position.x - .5f,transform.position.y - .51f);
+        // secPt = new Vector2(transform.position.x + .5f,transform.position.y + .5f);
+        // rb.gravityScale *= -1;
+        // grvSwitched = !grvSwitched;
+        // }else{
+        // firstPt = new Vector2(transform.position.x - .5f,transform.position.y + .51f);
+        // secPt = new Vector2(transform.position.x + .5f,transform.position.y + .5f);
+        // rb.gravityScale *= -1;
+        // grvSwitched = !grvSwitched;
+        // }
+        // }
+
+        isGrounded = Physics2D.OverlapArea(new Vector2(transform.position.x - .5f, transform.position.y - .51f), new Vector2(transform.position.x + .5f, transform.position.y + .5f), groundMask);
+
+        Vector3 orgin = new Vector3(transform.position.x, transform.position.y - .2f, transform.position.z);
+        Debug.DrawRay(orgin, Vector2.right);
+        RaycastHit2D hit = Physics2D.Raycast(orgin, Vector2.right, 1f, groundMask);
+        if (hit.collider != null)
         {
-            Jump();
+            if (hit.collider.CompareTag("Obstacle"))
+            {
+                menuUI.GetComponent<GameController>().GameOver();
+            }
         }
-    }
 
-    void Jump()
-    {
-        Debug.Log("Jump");
-        rb.AddForce(Vector2.up * jumpForce * Time.deltaTime,ForceMode2D.Impulse);
-        jump = false;
-    }
-
-    bool GroundCheck()
-    {
-        Debug.Log("Start");
-        Vector2 sprSize = sprRender.size;
-
-        Collider2D hit = Physics2D.OverlapArea(new Vector2(transform.position.x - sprSize.x/2, transform.position.y), new Vector2(transform.position.x + sprSize.x/2, transform.position.y + sprSize.y + .1f),groundMask);
-
-        if (hit != null)
+        //if the player goes through the ground they will die
+        LvlGenerator botYScript = GameObject.Find("Main Camera").GetComponent<LvlGenerator>();
+        int botY = botYScript.bottomY;
+        if (transform.position.y <= (botY - 2f))
         {
-            return true;
-        }
-        else
-        {
-            return false;
+            menuUI.GetComponent<GameController>().GameOver();
         }
     }
 }
